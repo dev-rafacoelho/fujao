@@ -7,12 +7,17 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useState } from "react";
+import { useNavigation } from "@react-navigation/native";
+import Logo from "../components/Logo";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const navigation = useNavigation();
 
   const handleLogin = () => {
     console.log("Login pressed", { email, password });
@@ -24,36 +29,76 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <View style={styles.loginContainer}>
-        <Text style={styles.title}>Login</Text>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Senha"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Seção Superior com logo e fundo amarelo */}
+        <View style={styles.headerSection}>
+          <Logo size={60} />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Fujão</Text>
+            <Text style={styles.headerSubtitle}>
+              Faça login para acessar a sua conta
+            </Text>
+          </View>
         </View>
 
+        {/* Campo Email */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>E-mail</Text>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="email@exemplo.com.br"
+              placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
+        </View>
+
+        {/* Campo Senha */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Senha</Text>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="********"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+            >
+              <Text style={styles.eyeIconText}>👁️</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Link Esqueceu a senha */}
+        <TouchableOpacity style={styles.forgotPasswordContainer}>
+          <Text style={styles.forgotPassword}>Esqueceu a senha?</Text>
+        </TouchableOpacity>
+
+        {/* Botão Entrar */}
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginButtonText}>Entrar</Text>
         </TouchableOpacity>
 
-        <Text style={styles.forgotPassword}>Esqueceu a senha?</Text>
-      </View>
+        {/* Link Cadastre-se */}
+        <View style={styles.registerContainer}>
+          <Text style={styles.registerText}>Não tem uma conta? </Text>
+          <TouchableOpacity>
+            <Text style={styles.registerLink}>Cadastre-se</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       <StatusBar style="auto" />
     </KeyboardAvoidingView>
@@ -63,61 +108,126 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F5F5",
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 40,
+  },
+  headerSection: {
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-  },
-  loginContainer: {
-    width: "85%",
-    backgroundColor: "#fff",
+    backgroundColor: "#FFD700",
     borderRadius: 20,
-    padding: 30,
+    padding: 20,
+    marginBottom: 20,
+    width: "100%",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
   },
-  title: {
+  headerTextContainer: {
+    alignItems: "center",
+    marginTop: 10,
+  },
+  headerTitle: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#333",
-    marginBottom: 30,
+    color: "#fff",
+    marginBottom: 5,
     textAlign: "center",
   },
-  inputContainer: {
-    marginBottom: 20,
+  headerSubtitle: {
+    fontSize: 14,
+    color: "#fff",
+    opacity: 0.9,
+    textAlign: "center",
+  },
+  fieldContainer: {
+    marginBottom: 15,
+    width: "100%",
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(224, 224, 224, 0.5)",
+    paddingHorizontal: 12,
   },
   input: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    fontSize: 16,
-    backgroundColor: "#fafafa",
+    flex: 1,
+    height: 42,
+    fontSize: 14,
+    color: "#333",
+  },
+  eyeIcon: {
+    padding: 5,
+  },
+  eyeIconText: {
+    fontSize: 20,
+  },
+  forgotPasswordContainer: {
+    alignItems: "flex-end",
+    marginBottom: 25,
+    width: "100%",
+  },
+  forgotPassword: {
+    fontSize: 14,
+    color: "#666",
+    textDecorationLine: "underline",
   },
   loginButton: {
-    backgroundColor: "#007AFF",
-    height: 50,
-    borderRadius: 10,
+    backgroundColor: "#FFD700",
+    height: 55,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 10,
+    marginBottom: 20,
+    width: "100%",
+    shadowColor: "#FFD700",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   loginButtonText: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
   },
-  forgotPassword: {
-    textAlign: "center",
-    marginTop: 20,
-    color: "#007AFF",
-    fontSize: 16,
+  registerContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  registerText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  registerLink: {
+    fontSize: 14,
+    color: "#FFD700",
+    fontWeight: "bold",
   },
 });
