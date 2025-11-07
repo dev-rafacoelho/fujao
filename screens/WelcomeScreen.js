@@ -25,7 +25,9 @@ export default function WelcomeScreen() {
         </Text>
 
         <TouchableOpacity style={styles.cadastrarButton}>
-          <Text style={styles.cadastrarButtonText}>Cadastrar-se</Text>
+          <Text style={styles.cadastrarButtonText}
+          onPress={() => navigation.navigate("Register")}>Cadastrar-se</Text>
+          
         </TouchableOpacity>
 
         <TouchableOpacity
