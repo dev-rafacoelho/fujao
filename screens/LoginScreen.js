@@ -8,20 +8,66 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import Logo from "../components/Logo";
+import { loginUsuario } from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
+  const { signIn } = useAuth();
 
-  const handleLogin = () => {
-    console.log("Login pressed", { email, password });
-    // Aqui será implementado a lógica de autenticação
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Erro", "Por favor, preencha email e senha.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const usuario = await loginUsuario({
+        email: email.trim().toLowerCase(),
+        hash_senha: password,
+      });
+
+      if (usuario && usuario.id) {
+        await signIn(usuario);
+        // Navegar para a tela do mapa após login bem-sucedido
+        navigation.replace("Map");
+      } else {
+        Alert.alert("Erro", "Resposta inválida do servidor. Tente novamente.");
+      }
+    } catch (error) {
+      console.error("Erro no login:", error);
+      
+      let errorMessage = "Erro ao fazer login. Tente novamente.";
+      
+      // Mensagens específicas para diferentes tipos de erro
+      if (error.message) {
+        if (error.message.includes("Usuário não encontrado")) {
+          errorMessage = "Usuário não encontrado. Verifique o email e tente novamente.";
+        } else if (error.message.includes("Senha incorreta")) {
+          errorMessage = "Senha incorreta. Tente novamente.";
+        } else if (error.message.includes("Erro de conexão")) {
+          errorMessage = "Erro de conexão. Verifique se o servidor está rodando.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert("Erro ao fazer login", errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,14 +133,22 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         {/* Botão Entrar */}
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>Entrar</Text>
+        <TouchableOpacity
+          style={[styles.loginButton, loading && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.loginButtonText}>Entrar</Text>
+          )}
         </TouchableOpacity>
 
         {/* Link Cadastre-se */}
         <View style={styles.registerContainer}>
           <Text style={styles.registerText}>Não tem uma conta? </Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate("Register")}>
             <Text style={styles.registerLink}>Cadastre-se</Text>
           </TouchableOpacity>
         </View>
@@ -215,6 +269,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   registerContainer: {
     flexDirection: "row",

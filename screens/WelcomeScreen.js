@@ -24,10 +24,11 @@ export default function WelcomeScreen() {
           comece a utilizar agora mesmo!
         </Text>
 
-        <TouchableOpacity style={styles.cadastrarButton}>
-          <Text style={styles.cadastrarButtonText}
-          onPress={() => navigation.navigate("Register")}>Cadastrar-se</Text>
-          
+        <TouchableOpacity
+          style={styles.cadastrarButton}
+          onPress={() => navigation.navigate("Register")}
+        >
+          <Text style={styles.cadastrarButtonText}>Cadastrar-se</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

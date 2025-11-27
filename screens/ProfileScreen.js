@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -13,20 +13,50 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "../contexts/AuthContext";
+import { buscarUsuarioPorId, atualizarUsuario } from "../services/api";
 import Logo from "../components/Logo";
-import { registrarUsuario } from "../services/api";
 
-export default function RegisterScreen() {
+export default function ProfileScreen() {
+  const { user, signIn } = useAuth();
   const navigation = useNavigation();
+  const [loading, setLoading] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
-  // Função para formatar telefone
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    if (!user || !user.id) {
+      Alert.alert("Erro", "Usuário não encontrado.");
+      navigation.goBack();
+      return;
+    }
+
+    try {
+      setLoadingUser(true);
+      const usuarioData = await buscarUsuarioPorId(user.id);
+      setNome(usuarioData.nome || "");
+      setTelefone(usuarioData.telefone || "");
+      setCpf(usuarioData.cpf || "");
+      setEmail(usuarioData.email || "");
+    } catch (error) {
+      console.error("Erro ao carregar dados do usuário:", error);
+      Alert.alert("Erro", "Não foi possível carregar os dados do usuário.");
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
   const formatarTelefone = (text) => {
     const numbers = text.replace(/\D/g, "");
     if (numbers.length <= 10) {
@@ -40,7 +70,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // Função para formatar CPF
   const formatarCPF = (text) => {
     const numbers = text.replace(/\D/g, "");
     return numbers
@@ -48,19 +77,11 @@ export default function RegisterScreen() {
       .replace(/-$/, "");
   };
 
-  // Função para validar email
   const validarEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
   };
 
-  // Função para validar CPF
-  const validarCPF = (cpf) => {
-    const numbers = cpf.replace(/\D/g, "");
-    return numbers.length === 11;
-  };
-
-  // Função para validar todos os campos
   const validarCampos = () => {
     if (!nome.trim()) {
       Alert.alert("Erro", "Por favor, preencha o nome.");
@@ -70,23 +91,18 @@ export default function RegisterScreen() {
       Alert.alert("Erro", "Por favor, preencha o telefone.");
       return false;
     }
-    if (!cpf.trim() || !validarCPF(cpf)) {
-      Alert.alert("Erro", "Por favor, preencha um CPF válido.");
-      return false;
-    }
     if (!email.trim() || !validarEmail(email)) {
       Alert.alert("Erro", "Por favor, preencha um e-mail válido.");
       return false;
     }
-    if (!senha || senha.length < 6) {
-      Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres.");
+    if (novaSenha && novaSenha.length < 6) {
+      Alert.alert("Erro", "A nova senha deve ter pelo menos 6 caracteres.");
       return false;
     }
     return true;
   };
 
-  // Função para fazer o registro
-  const handleRegister = async () => {
+  const handleUpdate = async () => {
     if (!validarCampos()) {
       return;
     }
@@ -94,72 +110,79 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      // Limpar formatação do CPF e telefone para enviar ao backend
-      const cpfLimpo = cpf.replace(/\D/g, "");
       const telefoneLimpo = telefone.replace(/\D/g, "");
 
-      // Preparar dados do usuário
-      const usuario = {
+      const usuarioAtualizado = {
         nome: nome.trim(),
         telefone: telefoneLimpo,
-        cpf: cpfLimpo,
         email: email.trim().toLowerCase(),
-        hash_senha: senha,
       };
 
-      // Chamar API para registrar
-      const response = await registrarUsuario(usuario);
+      // Se forneceu nova senha, incluir no update
+      if (novaSenha && novaSenha.trim().length > 0) {
+        usuarioAtualizado.hash_senha = novaSenha.trim();
+      }
+
+      const usuario = await atualizarUsuario(user.id, usuarioAtualizado);
+
+      // Atualizar o contexto de autenticação com os novos dados
+      await signIn(usuario);
 
       Alert.alert(
         "Sucesso!",
-        "Cadastro realizado com sucesso! Você já pode fazer login.",
+        "Perfil atualizado com sucesso!",
         [
           {
             text: "OK",
-            onPress: () => navigation.navigate("Login"),
+            onPress: () => navigation.goBack(),
           },
         ]
       );
     } catch (error) {
-      console.error("Erro ao registrar:", error);
+      console.error("Erro ao atualizar perfil:", error);
       Alert.alert(
-        "Erro ao cadastrar",
-        error.message || "Ocorreu um erro ao fazer o cadastro. Tente novamente."
+        "Erro ao atualizar",
+        error.message || "Não foi possível atualizar o perfil. Tente novamente."
       );
     } finally {
       setLoading(false);
     }
   };
 
+  if (loadingUser) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FFD700" />
+        <Text style={styles.loadingText}>Carregando perfil...</Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
+      <StatusBar style="dark" />
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Botão Voltar */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-
-        {/* Seção Superior com logo e fundo amarelo */}
-        <View style={styles.headerSection}>
-          <Logo size={60} />
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          <Logo size={50} />
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Fujão</Text>
-            <Text style={styles.headerSubtitle}>
-              Crie sua conta para começar
-            </Text>
+            <Text style={styles.headerTitle}>Meu Perfil</Text>
           </View>
         </View>
 
-        {/* Form */}
+        {/* Formulário */}
         <View style={styles.form}>
           {/* Campo Nome */}
           <View style={styles.fieldContainer}>
@@ -167,11 +190,12 @@ export default function RegisterScreen() {
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Rafael Coelho"
+                placeholder="Seu nome completo"
                 placeholderTextColor="#999"
                 value={nome}
                 onChangeText={setNome}
                 autoCapitalize="words"
+                editable={!loading}
               />
             </View>
           </View>
@@ -188,24 +212,24 @@ export default function RegisterScreen() {
                 onChangeText={(text) => setTelefone(formatarTelefone(text))}
                 keyboardType="phone-pad"
                 maxLength={15}
+                editable={!loading}
               />
             </View>
           </View>
 
-          {/* Campo CPF */}
+          {/* Campo CPF (somente leitura) */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>CPF</Text>
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, styles.inputDisabled]}>
               <TextInput
                 style={styles.input}
-                placeholder="074.869.421-63"
+                placeholder="000.000.000-00"
                 placeholderTextColor="#999"
-                value={cpf}
-                onChangeText={(text) => setCpf(formatarCPF(text))}
-                keyboardType="numeric"
-                maxLength={14}
+                value={cpf ? formatarCPF(cpf) : ""}
+                editable={false}
               />
             </View>
+            <Text style={styles.helpText}>CPF não pode ser alterado</Text>
           </View>
 
           {/* Campo E-mail */}
@@ -220,47 +244,50 @@ export default function RegisterScreen() {
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                editable={!loading}
               />
             </View>
           </View>
 
-          {/* Campo Senha */}
+          {/* Campo Nova Senha (opcional) */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Senha</Text>
+            <Text style={styles.label}>Nova Senha (opcional)</Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="********"
+                placeholder="Deixe em branco para manter a senha atual"
                 placeholderTextColor="#999"
-                value={senha}
-                onChangeText={setSenha}
-                secureTextEntry={!showPassword}
+                value={novaSenha}
+                onChangeText={setNovaSenha}
+                secureTextEntry={!showNewPassword}
+                editable={!loading}
               />
               <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={() => setShowNewPassword(!showNewPassword)}
                 style={styles.eyeIcon}
               >
                 <Text style={styles.eyeIconText}>👁️</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.helpText}>
+              Preencha apenas se desejar alterar a senha
+            </Text>
           </View>
 
-          {/* Botão Começar */}
+          {/* Botão Salvar */}
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleRegister}
+            style={[styles.saveButton, loading && styles.buttonDisabled]}
+            onPress={handleUpdate}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Começar</Text>
+              <Text style={styles.saveButtonText}>Salvar Alterações</Text>
             )}
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      <StatusBar style="auto" />
     </KeyboardAvoidingView>
   );
 }
@@ -270,34 +297,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F5F5F5",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#666",
+  },
   scrollContainer: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 40,
     paddingBottom: 40,
   },
-  backButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    zIndex: 10,
-    padding: 10,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: "#333",
-    fontWeight: "bold",
-  },
-  headerSection: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
+  header: {
     backgroundColor: "#FFD700",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    marginTop: 20,
-    width: "100%",
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -306,29 +327,36 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    alignItems: "center",
+  },
+  backButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    padding: 10,
+    zIndex: 10,
+  },
+  backIcon: {
+    fontSize: 24,
+    color: "#fff",
+    fontWeight: "bold",
   },
   headerTextContainer: {
     alignItems: "center",
     marginTop: 10,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 5,
-    textAlign: "center",
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#fff",
-    opacity: 0.9,
-    textAlign: "center",
+    marginTop: 10,
   },
   form: {
+    padding: 20,
     width: "100%",
   },
   fieldContainer: {
-    marginBottom: 15,
+    marginBottom: 20,
     width: "100%",
   },
   label: {
@@ -346,6 +374,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(224, 224, 224, 0.5)",
     paddingHorizontal: 12,
   },
+  inputDisabled: {
+    backgroundColor: "#f0f0f0",
+    opacity: 0.7,
+  },
   input: {
     flex: 1,
     height: 42,
@@ -358,13 +390,19 @@ const styles = StyleSheet.create({
   eyeIconText: {
     fontSize: 20,
   },
-  button: {
+  helpText: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 5,
+    fontStyle: "italic",
+  },
+  saveButton: {
     backgroundColor: "#FFD700",
     height: 55,
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 30,
+    marginTop: 20,
     width: "100%",
     shadowColor: "#FFD700",
     shadowOffset: {
@@ -375,12 +413,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4.65,
     elevation: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
+  saveButtonText: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
 });
+
