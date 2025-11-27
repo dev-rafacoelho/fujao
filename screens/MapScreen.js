@@ -18,6 +18,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
 import { buscarAnimaisPerdidos, atualizarAnimal } from "../services/api";
 import AddAnimalModal from "../components/AddAnimalModal";
+import SimpleMenu from "../components/SimpleMenu";
 
 const { width, height } = Dimensions.get("window");
 
@@ -28,6 +29,7 @@ export default function MapScreen() {
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [addAnimalModalVisible, setAddAnimalModalVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [region, setRegion] = useState({
     latitude: -15.7975,
@@ -201,13 +203,10 @@ export default function MapScreen() {
         </Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => navigation.navigate("Profile")}
+            style={styles.menuButton}
+            onPress={() => setMenuVisible(true)}
           >
-            <Text style={styles.profileButtonText}>👤</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
-            <Text style={styles.logoutText}>Sair</Text>
+            <Text style={styles.menuButtonText}>☰</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -349,7 +348,12 @@ export default function MapScreen() {
           loadAnimaisPerdidos();
         }}
         user={user}
-        initialLocation={region}
+      />
+
+      {/* Menu Lateral Simples */}
+      <SimpleMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
       />
     </View>
   );
@@ -406,7 +410,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  profileButton: {
+  menuButton: {
     padding: 8,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 20,
@@ -415,16 +419,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  profileButtonText: {
-    fontSize: 20,
-  },
-  logoutButton: {
-    padding: 8,
-  },
-  logoutText: {
+  menuButtonText: {
+    fontSize: 24,
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
   },
   map: {
     flex: 1,

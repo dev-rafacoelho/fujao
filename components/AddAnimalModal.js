@@ -17,7 +17,52 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { criarAnimal } from "../services/api";
 
-export default function AddAnimalModal({ visible, onClose, onSuccess, user, initialLocation }) {
+// Opções para os selects
+const ESPECIES = ["Cachorro", "Gato", "Outro"];
+const RACAS_CACHORRO = [
+  "Sem raça definida",
+  "Golden Retriever",
+  "Labrador",
+  "Bulldog",
+  "Pastor Alemão",
+  "Poodle",
+  "Beagle",
+  "Rottweiler",
+  "Yorkshire",
+  "Shih Tzu",
+  "Husky Siberiano",
+  "Chihuahua",
+  "Dachshund",
+  "Boxer",
+  "Doberman",
+  "Outra",
+];
+const RACAS_GATO = [
+  "Sem raça definida",
+  "Persa",
+  "Siamês",
+  "Maine Coon",
+  "Angorá",
+  "Ragdoll",
+  "British Shorthair",
+  "Sphynx",
+  "Bengal",
+  "Outra",
+];
+const TAMANHOS = ["Pequeno", "Médio", "Grande"];
+const CORES = [
+  "Branco",
+  "Preto",
+  "Marrom",
+  "Cinza",
+  "Dourado",
+  "Tigrado",
+  "Bicolor",
+  "Tricolor",
+  "Outra",
+];
+
+export default function AddAnimalModal({ visible, onClose, onSuccess, user }) {
   const [loading, setLoading] = useState(false);
   const [nome, setNome] = useState("");
   const [raca, setRaca] = useState("");
@@ -25,19 +70,94 @@ export default function AddAnimalModal({ visible, onClose, onSuccess, user, init
   const [tamanho, setTamanho] = useState("");
   const [cor, setCor] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [latitude, setLatitude] = useState(initialLocation?.latitude || null);
-  const [longitude, setLongitude] = useState(initialLocation?.longitude || null);
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
   const [imagem, setImagem] = useState(null);
   const [imagemBase64, setImagemBase64] = useState(null);
 
+  // Obter raças baseado na espécie selecionada
+  const racasDisponiveis = especie === "Cachorro" ? RACAS_CACHORRO : especie === "Gato" ? RACAS_GATO : ["Sem raça definida", "Outra"];
+
+  // Funções para abrir selects
+  const showEspecieSelect = () => {
+    Alert.alert(
+      "Selecione a Espécie",
+      "",
+      [
+        ...ESPECIES.map((item) => ({
+          text: item,
+          onPress: () => {
+            setEspecie(item);
+            setRaca(""); // Reset raça quando mudar espécie
+          },
+        })),
+        { text: "Cancelar", style: "cancel" },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const showRacaSelect = () => {
+    Alert.alert(
+      "Selecione a Raça",
+      "",
+      [
+        ...racasDisponiveis.map((item) => ({
+          text: item,
+          onPress: () => setRaca(item),
+        })),
+        { text: "Cancelar", style: "cancel" },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const showTamanhoSelect = () => {
+    Alert.alert(
+      "Selecione o Tamanho",
+      "",
+      [
+        ...TAMANHOS.map((item) => ({
+          text: item,
+          onPress: () => setTamanho(item),
+        })),
+        { text: "Cancelar", style: "cancel" },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const showCorSelect = () => {
+    Alert.alert(
+      "Selecione a Cor",
+      "",
+      [
+        ...CORES.map((item) => ({
+          text: item,
+          onPress: () => setCor(item),
+        })),
+        { text: "Cancelar", style: "cancel" },
+      ],
+      { cancelable: true }
+    );
+  };
+
   useEffect(() => {
-    if (initialLocation) {
-      setLatitude(initialLocation.latitude);
-      setLongitude(initialLocation.longitude);
-    } else {
+    // Sempre buscar a localização atual quando o modal abrir
+    if (visible) {
       getCurrentLocation();
+    } else {
+      // Resetar formulário quando fechar
+      setNome("");
+      setRaca("");
+      setEspecie("Cachorro");
+      setTamanho("");
+      setCor("");
+      setDescricao("");
+      setImagem(null);
+      setImagemBase64(null);
     }
-  }, [initialLocation]);
+  }, [visible]);
 
   const getCurrentLocation = async () => {
     try {
@@ -210,6 +330,35 @@ export default function AddAnimalModal({ visible, onClose, onSuccess, user, init
     setLoading(true);
 
     try {
+      // Atualizar localização atual antes de salvar para garantir que seja a mais recente
+      let finalLatitude = latitude;
+      let finalLongitude = longitude;
+      
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const currentLocation = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          finalLatitude = currentLocation.coords.latitude;
+          finalLongitude = currentLocation.coords.longitude;
+          setLatitude(finalLatitude);
+          setLongitude(finalLongitude);
+        }
+      } catch (error) {
+        console.error("Erro ao atualizar localização:", error);
+      }
+
+      // Verificar se temos localização válida
+      if (!finalLatitude || !finalLongitude) {
+        Alert.alert(
+          "Erro de localização",
+          "Não foi possível obter sua localização atual. Por favor, permita o acesso à localização e tente novamente."
+        );
+        setLoading(false);
+        return;
+      }
+
       // Garantir que a imagem não ultrapasse o limite (medida de segurança final)
       let imagemFinal = imagemBase64;
       if (imagemFinal && imagemFinal.length > 800000) {
@@ -224,13 +373,13 @@ export default function AddAnimalModal({ visible, onClose, onSuccess, user, init
 
       const animalData = {
         nome: nome.trim(),
-        raca: raca.trim() || null,
-        especie: especie.trim() || "Cachorro",
-        tamanho: tamanho.trim() || null,
-        cor: cor.trim() || null,
+        raca: raca && raca.trim() ? raca.trim() : null,
+        especie: especie || "Cachorro",
+        tamanho: tamanho && tamanho.trim() ? tamanho.trim() : null,
+        cor: cor && cor.trim() ? cor.trim() : null,
         descricao: descricao.trim() || null,
-        latitude: latitude,
-        longitude: longitude,
+        latitude: finalLatitude, // Sempre usa a localização atual
+        longitude: finalLongitude, // Sempre usa a localização atual
         perdido: true,
         usuario_id: user.id,
         imagem_base64: imagemFinal || null,
@@ -340,46 +489,58 @@ export default function AddAnimalModal({ visible, onClose, onSuccess, user, init
 
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Espécie</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ex: Cachorro"
-                    value={especie}
-                    onChangeText={setEspecie}
-                    editable={!loading}
-                  />
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={showEspecieSelect}
+                    disabled={loading}
+                  >
+                    <Text style={styles.selectButtonText}>
+                      {especie || "Selecione a espécie"}
+                    </Text>
+                    <Text style={styles.selectArrow}>▼</Text>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Raça</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ex: Golden Retriever"
-                    value={raca}
-                    onChangeText={setRaca}
-                    editable={!loading}
-                  />
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={showRacaSelect}
+                    disabled={loading}
+                  >
+                    <Text style={styles.selectButtonText}>
+                      {raca || "Selecione a raça"}
+                    </Text>
+                    <Text style={styles.selectArrow}>▼</Text>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Tamanho</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ex: Grande, Médio, Pequeno"
-                    value={tamanho}
-                    onChangeText={setTamanho}
-                    editable={!loading}
-                  />
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={showTamanhoSelect}
+                    disabled={loading}
+                  >
+                    <Text style={styles.selectButtonText}>
+                      {tamanho || "Selecione o tamanho"}
+                    </Text>
+                    <Text style={styles.selectArrow}>▼</Text>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Cor</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ex: Marrom, Preto, Branco"
-                    value={cor}
-                    onChangeText={setCor}
-                    editable={!loading}
-                  />
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={showCorSelect}
+                    disabled={loading}
+                  >
+                    <Text style={styles.selectButtonText}>
+                      {cor || "Selecione a cor"}
+                    </Text>
+                    <Text style={styles.selectArrow}>▼</Text>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.fieldContainer}>
@@ -399,9 +560,17 @@ export default function AddAnimalModal({ visible, onClose, onSuccess, user, init
                 <View style={styles.locationInfo}>
                   <Text style={styles.locationLabel}>📍 Localização:</Text>
                   {latitude && longitude ? (
-                    <Text style={styles.locationText}>
-                      Lat: {latitude.toFixed(6)}, Long: {longitude.toFixed(6)}
-                    </Text>
+                    <View>
+                      <Text style={styles.locationText}>
+                        Lat: {latitude.toFixed(6)}
+                      </Text>
+                      <Text style={styles.locationText}>
+                        Long: {longitude.toFixed(6)}
+                      </Text>
+                      <Text style={styles.locationHelpText}>
+                        ✓ Usando sua localização atual
+                      </Text>
+                    </View>
                   ) : (
                     <Text style={styles.locationText}>Obtendo localização...</Text>
                   )}
@@ -516,6 +685,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e0e0e0",
   },
+  selectButton: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  selectButtonText: {
+    fontSize: 16,
+    color: "#333",
+    flex: 1,
+  },
+  selectArrow: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 10,
+  },
   textArea: {
     height: 100,
     paddingTop: 12,
@@ -535,6 +725,13 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 12,
     color: "#666",
+    marginBottom: 2,
+  },
+  locationHelpText: {
+    fontSize: 11,
+    color: "#4CAF50",
+    fontWeight: "600",
+    marginTop: 5,
   },
   submitButton: {
     backgroundColor: "#FFD700",
