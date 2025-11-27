@@ -59,6 +59,17 @@ export default function SimpleMenu({ visible, onClose }) {
             <View style={styles.menuOptions}>
               <TouchableOpacity
                 style={styles.menuItem}
+                onPress={() => {
+                  onClose();
+                  navigation.navigate("AnimalsList");
+                }}
+              >
+                <Text style={styles.menuItemIcon}>🐕</Text>
+                <Text style={styles.menuItemText}>Ver Todos os Animais</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
                 onPress={handleProfile}
               >
                 <Text style={styles.menuItemIcon}>👤</Text>

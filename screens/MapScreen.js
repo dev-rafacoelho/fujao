@@ -14,7 +14,7 @@ import {
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import { StatusBar } from "expo-status-bar";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
 import { buscarAnimaisPerdidos, atualizarAnimal } from "../services/api";
 import AddAnimalModal from "../components/AddAnimalModal";
@@ -25,12 +25,14 @@ const { width, height } = Dimensions.get("window");
 export default function MapScreen() {
   const { user, signOut, isAuthenticated } = useAuth();
   const navigation = useNavigation();
+  const route = useRoute();
   const [animais, setAnimais] = useState([]);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [addAnimalModalVisible, setAddAnimalModalVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [loading, setLoading] = useState(true);
+  const mapRef = React.useRef(null);
   const [region, setRegion] = useState({
     latitude: -15.7975,
     longitude: -47.8919,
@@ -48,6 +50,41 @@ export default function MapScreen() {
     requestLocationPermission();
     loadAnimaisPerdidos();
   }, [isAuthenticated]);
+
+  // Reagir quando receber parâmetro para focar em um animal
+  useEffect(() => {
+    const focusAnimal = route.params?.focusAnimal;
+    if (focusAnimal && focusAnimal.latitude && focusAnimal.longitude && animais.length > 0) {
+      // Encontrar o animal completo na lista
+      const animalCompleto = animais.find((a) => a.id === focusAnimal.id);
+      
+      if (animalCompleto && animalCompleto.latitude && animalCompleto.longitude) {
+        // Focar no animal no mapa
+        const newRegion = {
+          latitude: animalCompleto.latitude,
+          longitude: animalCompleto.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        };
+        
+        setRegion(newRegion);
+        
+        // Aguardar um pouco para garantir que o mapa está renderizado
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.animateToRegion(newRegion, 1000);
+          }
+          
+          // Abrir modal com detalhes do animal
+          setSelectedAnimal(animalCompleto);
+          setModalVisible(true);
+        }, 500);
+        
+        // Limpar o parâmetro para não focar novamente
+        navigation.setParams({ focusAnimal: undefined });
+      }
+    }
+  }, [route.params?.focusAnimal, animais, navigation]);
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -213,6 +250,7 @@ export default function MapScreen() {
 
       {/* Mapa */}
       <MapView
+        ref={mapRef}
         style={styles.map}
         region={region}
         onRegionChangeComplete={setRegion}
